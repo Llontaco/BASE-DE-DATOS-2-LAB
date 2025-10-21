@@ -1,0 +1,246 @@
+-- TABLA DE PROVEEDORES
+CREATE TABLE S (
+  S# VARCHAR2(2) PRIMARY KEY,
+  SNAME VARCHAR2(20),
+  STATUS NUMBER,
+  CITY VARCHAR2(20)
+);
+
+-- TABLA DE PARTES
+CREATE TABLE P (
+  P# VARCHAR2(2) PRIMARY KEY,
+  PNAME VARCHAR2(20),
+  COLOR VARCHAR2(10),
+  WEIGHT NUMBER,
+  CITY VARCHAR2(20)
+);
+
+-- TABLA DE ENVÍOS
+CREATE TABLE SP (
+  S# VARCHAR2(2),
+  P# VARCHAR2(2),
+  QTY NUMBER,
+  PRIMARY KEY (S#, P#),
+  FOREIGN KEY (S#) REFERENCES S(S#),
+  FOREIGN KEY (P#) REFERENCES P(P#)
+);
+
+//Insercion de datos 
+-- DATOS DE PROVEEDORES
+INSERT INTO S VALUES ('S1', 'Smith', 20, 'London');
+INSERT INTO S VALUES ('S2', 'Jones', 10, 'Paris');
+INSERT INTO S VALUES ('S3', 'Blake', 30, 'Paris');
+INSERT INTO S VALUES ('S4', 'Clark', 20, 'London');
+INSERT INTO S VALUES ('S5', 'Adams', 30, 'Athens');
+
+-- DATOS DE PARTES
+INSERT INTO P VALUES ('P1', 'Nut', 'Red', 12, 'London');
+INSERT INTO P VALUES ('P2', 'Bolt', 'Green', 17, 'Paris');
+INSERT INTO P VALUES ('P3', 'Screw', 'Blue', 17, 'Rome');
+INSERT INTO P VALUES ('P4', 'Screw', 'Red', 14, 'London');
+INSERT INTO P VALUES ('P5', 'Cam', 'Blue', 12, 'Paris');
+INSERT INTO P VALUES ('P6', 'Cog', 'Red', 19, 'London');
+
+-- DATOS DE ENVÍOS
+INSERT INTO SP VALUES ('S1', 'P1', 300);
+INSERT INTO SP VALUES ('S1', 'P2', 200);
+INSERT INTO SP VALUES ('S1', 'P3', 400);
+INSERT INTO SP VALUES ('S1', 'P4', 200);
+INSERT INTO SP VALUES ('S1', 'P5', 100);
+INSERT INTO SP VALUES ('S1', 'P6', 100);
+INSERT INTO SP VALUES ('S2', 'P1', 300);
+INSERT INTO SP VALUES ('S2', 'P2', 400);
+INSERT INTO SP VALUES ('S3', 'P2', 200);
+INSERT INTO SP VALUES ('S4', 'P2', 200);
+INSERT INTO SP VALUES ('S4', 'P4', 300);
+INSERT INTO SP VALUES ('S4', 'P5', 400);
+COMMIT;
+
+
+/*3. Procedimientos y Funciones
+//4.1.1 Partes que no son de París y pesan más de 10 */
+
+CREATE OR REPLACE PROCEDURE partes_no_paris IS
+BEGIN
+  FOR r IN (SELECT COLOR, CITY FROM P WHERE CITY <> 'Paris' AND WEIGHT > 10) LOOP
+    DBMS_OUTPUT.PUT_LINE('Color: ' || r.COLOR || ', Ciudad: ' || r.CITY);
+  END LOOP;
+END;
+/
+
+
+/*4.1.2 Partes con peso en gramos*/
+
+CREATE OR REPLACE FUNCTION peso_en_gramos(p_num P.P#%TYPE)
+RETURN NUMBER IS
+  v_peso NUMBER;
+BEGIN
+  SELECT WEIGHT * 453.592 INTO v_peso FROM P WHERE P# = p_num;
+  RETURN v_peso;
+END;
+/
+
+
+/*4.1.3 Detalle completo de proveedores*/
+
+CREATE OR REPLACE PROCEDURE detalle_proveedores IS
+BEGIN
+  FOR r IN (SELECT * FROM S) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.S# || ' - ' || r.SNAME || ', ' || r.STATUS || ', ' || r.CITY);
+  END LOOP;
+END;
+/
+
+
+/*4.1.4 Proveedores y partes co-localizados*/
+
+CREATE OR REPLACE PROCEDURE proveedores_partes_colocalizados IS
+BEGIN
+  FOR r IN (
+    SELECT S.SNAME, P.PNAME, S.CITY
+    FROM S JOIN P ON S.CITY = P.CITY
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.SNAME || ' -> ' || r.PNAME || ' (' || r.CITY || ')');
+  END LOOP;
+END;
+/
+
+
+/*4.1.5 Pares de ciudades (proveedor abastece parte en otra ciudad)*/
+
+CREATE OR REPLACE PROCEDURE pares_ciudades IS
+BEGIN
+  FOR r IN (
+    SELECT DISTINCT S.CITY ciudad_prov, P.CITY ciudad_parte
+    FROM S, P, SP
+    WHERE S.S# = SP.S# AND P.P# = SP.P#
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.ciudad_prov || ' -> ' || r.ciudad_parte);
+  END LOOP;
+END;
+/
+
+/*4.1.7 Número total de proveedores*/
+CREATE OR REPLACE FUNCTION total_proveedores RETURN NUMBER IS
+  v_total NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO v_total FROM S;
+  RETURN v_total;
+END;
+/
+
+/*4.1.8 Cantidad mínima y máxima de la parte P2*/
+CREATE OR REPLACE PROCEDURE min_max_p2 IS
+  v_min NUMBER;
+  v_max NUMBER;
+BEGIN
+  SELECT MIN(QTY), MAX(QTY) INTO v_min, v_max FROM SP WHERE P# = 'P2';
+  DBMS_OUTPUT.PUT_LINE('Min: ' || v_min || ', Max: ' || v_max);
+END;
+/
+
+/*4.1.9 Total despachado por parte*/
+CREATE OR REPLACE PROCEDURE total_por_parte IS
+BEGIN
+  FOR r IN (SELECT P#, SUM(QTY) total FROM SP GROUP BY P#) LOOP
+    DBMS_OUTPUT.PUT_LINE('Parte: ' || r.P# || ' Total: ' || r.total);
+  END LOOP;
+END;
+/
+
+/*4.1.10 Partes con más de un proveedor*/
+CREATE OR REPLACE PROCEDURE partes_mas_de_un_proveedor IS
+BEGIN
+  FOR r IN (
+    SELECT P# FROM SP GROUP BY P# HAVING COUNT(DISTINCT S#) > 1
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Parte: ' || r.P#);
+  END LOOP;
+END;
+/
+
+/*4.1.11 Proveedores que abastecen la parte P2*/
+CREATE OR REPLACE PROCEDURE proveedores_p2 IS
+BEGIN
+  FOR r IN (
+    SELECT SNAME FROM S WHERE S# IN (SELECT S# FROM SP WHERE P# = 'P2')
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Proveedor: ' || r.SNAME);
+  END LOOP;
+END;
+/
+
+--4.1.12 Proveedores que abastecen al menos una parte
+CREATE OR REPLACE PROCEDURE proveedores_con_envios IS
+BEGIN
+  FOR r IN (
+    SELECT DISTINCT SNAME FROM S WHERE S# IN (SELECT S# FROM SP)
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.SNAME);
+  END LOOP;
+END;
+/
+
+--4.1.13 Proveedores con estado menor al máximo
+CREATE OR REPLACE PROCEDURE proveedores_estado_menor IS
+BEGIN
+  FOR r IN (
+    SELECT S# FROM S WHERE STATUS < (SELECT MAX(STATUS) FROM S)
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Proveedor: ' || r.S#);
+  END LOOP;
+END;
+/
+
+--4.1.14 Proveedores que abastecen P2 (con EXISTS)
+CREATE OR REPLACE PROCEDURE proveedores_p2_exists IS
+BEGIN
+  FOR r IN (
+    SELECT SNAME FROM S s
+    WHERE EXISTS (SELECT 1 FROM SP WHERE S# = s.S# AND P# = 'P2')
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.SNAME);
+  END LOOP;
+END;
+/
+
+--4.1.15 Proveedores que NO abastecen P2
+CREATE OR REPLACE PROCEDURE proveedores_no_p2 IS
+BEGIN
+  FOR r IN (
+    SELECT SNAME FROM S
+    WHERE S# NOT IN (SELECT S# FROM SP WHERE P# = 'P2')
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.SNAME);
+  END LOOP;
+END;
+/
+
+--4.1.16 Proveedores que abastecen todas las partes
+CREATE OR REPLACE PROCEDURE proveedores_todas_partes IS
+BEGIN
+  FOR r IN (
+    SELECT SNAME FROM S s
+    WHERE NOT EXISTS (
+      SELECT P# FROM P
+      MINUS
+      SELECT P# FROM SP WHERE S# = s.S#
+    )
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Proveedor: ' || r.SNAME);
+  END LOOP;
+END;
+/
+
+--4.1.17 Partes con peso > 16 o abastecidas por S2
+CREATE OR REPLACE PROCEDURE partes_peso_o_s2 IS
+BEGIN
+  FOR r IN (
+    SELECT DISTINCT P# FROM P
+    WHERE WEIGHT > 16
+    OR P# IN (SELECT P# FROM SP WHERE S# = 'S2')
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Parte: ' || r.P#);
+  END LOOP;
+END;
+/

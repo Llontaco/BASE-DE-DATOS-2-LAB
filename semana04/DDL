@@ -1,0 +1,92 @@
+1.CREACION DE TABLESPACE DE DATOS “Esquema”
+CREATE TABLESPACE Esquema
+DATAFILE ‘C:\app\USUARIO\product\21c\oradata\XE\Esquema01.dbf’ SIZE 50M
+AUTOEXTEND ON NEXT 10M MAXSIZE 200M,
+'C:\app\USUARIO\product\21c\oradata\XE\Esquema02.dbf' SIZE 50M
+AUTOEXTEND ON NEXT 10M MAXSIZE 200M
+EXTENT MANAGEMENT LOCAL
+SEGMENT SPACE MANAGEMENT AUTO;
+
+2.CREACION DE TABLEESPACE TEMPORAL “TEMPESQUEMA”
+
+CREATE TEMPORARY TABLESPACE TempEsquema
+TEMPFILE ‘C:\app\USUARIO\product\21c\oradata\XE\tempEsquema01.dbf’ SIZE 100M
+EXTENT MANAGEMENT LOCAL;
+
+3.CREACION DE TABLAS
+CREATE TABLE Persona (
+idPersona NUMBER PRIMARY KEY,
+nombre VARCHAR2(100) NOT NULL,
+direccion VARCHAR2(200),
+telefono VARCHAR2(20),
+email VARCHAR2(100) UNIQUE
+) TABLESPACE Esquema;
+
+CREATE TABLE Profesor (
+idProfesor NUMBER PRIMARY KEY,
+idPersona NUMBER NOT NULL,
+departamento VARCHAR2(100),
+
+dedicacion VARCHAR2(50),
+FOREIGN KEY (idPersona) REFERENCES Persona(idPersona)
+) TABLESPACE Esquema;
+
+CREATE TABLE Centro (
+idCentro NUMBER PRIMARY KEY,
+nombre VARCHAR2(100) NOT NULL
+) TABLESPACE Esquema;
+
+CREATE TABLE ProfesorCentro (
+idProfesor NUMBER,
+idCentro NUMBER,
+PRIMARY KEY (idProfesor, idCentro),
+FOREIGN KEY (idProfesor) REFERENCES Profesor(idProfesor),
+FOREIGN KEY (idCentro) REFERENCES Centro(idCentro)
+) TABLESPACE Esquema;
+
+CREATE TABLE Alumno (
+idAlumno NUMBER PRIMARY KEY,
+idPersona NUMBER NOT NULL,
+idCentro NUMBER NOT NULL,
+numExpediente VARCHAR2(20) UNIQUE,
+titulacion VARCHAR2(100),
+FOREIGN KEY (idPersona) REFERENCES Persona(idPersona),
+FOREIGN KEY (idCentro) REFERENCES Centro(idCentro)
+) TABLESPACE Esquema;
+
+CREATE TABLE Personal (
+idPersonal NUMBER PRIMARY KEY,
+idPersona NUMBER NOT NULL,
+unidadAdministrativa VARCHAR2(100),
+
+categoriaProfesional VARCHAR2(100),
+FOREIGN KEY (idPersona) REFERENCES Persona(idPersona)
+) TABLESPACE Esquema;
+4.RESTRICCIONES
+Primary key
+UNIQUE (email-numExpediente)
+Foreign key
+
+5.VISTA PARA LISTAR A TODOS LOS MIEMBROS DE LA UNIVERSIDAD
+CREATE OR REPLACE VIEW VistaUniversidad AS
+SELECT p.nombre, p.direccion, p.telefono, p.email,
+'Profesor' AS tipo, pr.departamento AS info1, pr.dedicacion AS info2
+FROM Persona p
+JOIN Profesor pr ON p.idPersona = pr.idPersona
+UNION
+SELECT p.nombre, p.direccion, p.telefono, p.email,
+'Alumno' AS tipo, a.numExpediente AS info1, a.titulacion AS info2
+FROM Persona p
+JOIN Alumno a ON p.idPersona = a.idPersona
+UNION
+SELECT p.nombre, p.direccion, p.telefono, p.email,
+'Personal' AS tipo, pe.unidadAdministrativa AS info1, pe.categoriaProfesional AS info2
+FROM Persona p
+JOIN Personal pe ON p.idPersona = pe.idPersona
+ORDER BY nombre;
+
+6-INDICES
+CREATE INDEX idx_persona_nombre ON Persona(nombre);
+CREATE INDEX idx_profesor_nombre ON Profesor(idPersona);
+CREATE INDEX idx_alumno_nombre ON Alumno(idPersona);
+CREATE INDEX idx_personal_nombre ON Personal(idPersona);
